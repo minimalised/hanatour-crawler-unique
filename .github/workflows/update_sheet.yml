@@ -1,17 +1,17 @@
-name: Sync Hotel Data to Sheet
+name: Google Drive Sync & Hotel Data Update
 
 on:
   schedule:
-    # 매일 한국 시간 기준 오전 6시 실행 (UTC 21시)
-    - cron: '0 21 * * *'
-  workflow_dispatch: # GitHub 웹 UI에서 수동 실행 버튼 활성화
+    # 매일 한국 시간 기준 아침 08:30 실행 (UTC 23:30)
+    - cron: '30 23 * * *'
+  workflow_dispatch: # GitHub 웹 UI에서 수동 실행 가능
 
 jobs:
-  run-sync:
+  run-automation:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
+    - name: Check out repository code
       uses: actions/checkout@v4
 
     - name: Set up Python
@@ -19,12 +19,20 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Dependencies
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install gspread google-auth
+        pip install pandas openpyxl google-api-python-client google-auth gspread
 
-    - name: Run Script
+    # 1번째 스크립트 실행 (Google drive file sync)
+    - name: Execute Google Drive sync script
+      env:
+        GOOGLE_JSON_RAW: ${{ secrets.GOOGLE_JSON_RAW }}
+        TARGET_SPREADSHEET_ID: ${{ secrets.TARGET_SPREADSHEET_ID }}
+      run: python sync_data_hotel.py
+
+    # 2번째 스크립트 실행 (1번 완수 후 이어서 실행)
+    - name: Execute Hotel Data Update script
       env:
         GOOGLE_JSON_RAW: ${{ secrets.GOOGLE_JSON_RAW }}
         SPREADSHEET_ID: ${{ secrets.SOURCE_SPREADSHEET_ID }}
