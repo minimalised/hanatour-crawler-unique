@@ -25,7 +25,7 @@ if not all_rows:
     print("데이터가 없습니다.")
     exit(0)
 
-# 3. 지정된 6개 열 가져오기, B열 괄호 제거, F열 도메인 변경
+# 3. 지정된 열 가져오기, B열 괄호 제거, F열 도메인 변경, K열 조건 처리
 extracted_data = []
 
 # 대괄호 및 소괄호 [, ], (, ) 제거용 정규표현식
@@ -54,16 +54,21 @@ for idx, row in enumerate(all_rows):
     def get_val(i):
         return row[i] if i < len(row) else ''
 
-    col_a = get_val(0)  # id
-    col_b = get_val(1)  # 상품명
-    col_c = get_val(2)  # 가격
-    col_d = get_val(3)  # 혜택가격
-    col_f = get_val(5)  # 링크
-    col_h = get_val(7)  # 이미지링크
+    col_a = get_val(0)  # A열: id
+    col_b = get_val(1)  # B열: 상품명
+    col_c = get_val(2)  # C열: 가격
+    col_d = get_val(3)  # D열: 혜택가격
+    col_f = get_val(5)  # F열: 링크
+    col_h = get_val(7)  # H열: 이미지링크
+    col_k = get_val(10) # K열: 분류/카테고리
 
-    # 1행(헤더)은 변경 없이 그대로 유지
+    # 1행(헤더)은 조건 검사 없이 그대로 추가
     if idx == 0:
         extracted_data.append([col_a, col_b, col_c, col_d, col_f, col_h])
+        continue
+
+    # K열이 '국내숙박'인 경우 불러오지 않고 스킵 (공백 제거 후 비교)
+    if col_k.strip() == '국내숙박':
         continue
 
     # B열 상품명에서 [, ], (, ) 제거
