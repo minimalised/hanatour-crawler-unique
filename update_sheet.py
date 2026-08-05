@@ -2,7 +2,7 @@ import os
 import re
 import json
 import gspread
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 from google.oauth2.service_account import Credentials
 
 # 1. Secrets에서 구글 계정 키 및 시트 ID 가져오기
@@ -25,27 +25,39 @@ if not all_rows:
     print("데이터가 없습니다.")
     exit(0)
 
-# 3. 지정된 열 가져오기, B열 괄호 제거, F열 도메인 변경, K열 조건 처리
+# 3. 지정된 열 가져오기, B열 괄호 제거, F열 도메인 변경 및 utm 파라미터 제거, K열 조건 처리
 extracted_data = []
 
 # 대괄호 및 소괄호 [, ], (, ) 제거용 정규표현식
 bracket_pattern = re.compile(r'[\[\]\(\)]')
 
-# 도메인을 변경하는 함수
-def replace_domain(url, new_domain="https://unique.hanatour.com"):
+# 도메인 변경 및 utm 파라미터 제거 함수
+def clean_and_replace_url(url, new_domain="https://unique.hanatour.com"):
     if not url or not url.startswith("http"):
         return url
     
     parsed_url = urlparse(url)
     target_parsed = urlparse(new_domain)
     
-    # scheme(https) 및 netloc(unique.hanatour.com) 변경 후 재조합
+    # 쿼리 파라미터 분해
+    query_params = parse_qs(parsed_url.query, keep_blank_values=True)
+    
+    # 'utm_'으로 시작하는 파라미터 제거
+    filtered_params = {
+        k: v for k, v in query_params.items() 
+        if not k.startswith("utm_")
+    }
+    
+    # 쿼리 문자열 재구성
+    new_query = urlencode(filtered_params, doseq=True)
+    
+    # scheme(https), netloc(unique.hanatour.com) 및 정돈된 query 적용 후 재조합
     updated_url = urlunparse((
         target_parsed.scheme,
         target_parsed.netloc,
         parsed_url.path,
         parsed_url.params,
-        parsed_url.query,
+        new_query,
         parsed_url.fragment
     ))
     return updated_url
@@ -74,8 +86,8 @@ for idx, row in enumerate(all_rows):
     # B열 상품명에서 [, ], (, ) 제거
     cleaned_b = bracket_pattern.sub('', col_b)
 
-    # F열 도메인을 https://unique.hanatour.com 으로 변경
-    updated_f = replace_domain(col_f)
+    # F열 도메인 변경 및 utm 파라미터 제거
+    updated_f = clean_and_replace_url(col_f)
 
     extracted_data.append([col_a, cleaned_b, col_c, col_d, updated_f, col_h])
 
