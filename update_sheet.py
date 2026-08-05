@@ -2,6 +2,7 @@ import os
 import re
 import json
 import gspread
+from urllib.parse import urlparse, urlunparse
 from google.oauth2.service_account import Credentials
 
 # 1. Secrets에서 구글 계정 키 및 시트 ID 가져오기
@@ -24,16 +25,34 @@ if not all_rows:
     print("데이터가 없습니다.")
     exit(0)
 
-# 3. 지정된 6개 열 가져오기 및 B열 괄호 제거
-# 추출 대상 열 인덱스 (0부터 시작): A(0), B(1), C(2), D(3), F(5), H(7)
+# 3. 지정된 6개 열 가져오기, B열 괄호 제거, F열 도메인 변경
 extracted_data = []
 
 # 대괄호 및 소괄호 [, ], (, ) 제거용 정규표현식
 bracket_pattern = re.compile(r'[\[\]\(\)]')
 
-for row in all_rows:
-    def get_val(idx):
-        return row[idx] if idx < len(row) else ''
+# 도메인을 변경하는 함수
+def replace_domain(url, new_domain="https://unique.hanatour.com"):
+    if not url or not url.startswith("http"):
+        return url
+    
+    parsed_url = urlparse(url)
+    target_parsed = urlparse(new_domain)
+    
+    # scheme(https) 및 netloc(unique.hanatour.com) 변경 후 재조합
+    updated_url = urlunparse((
+        target_parsed.scheme,
+        target_parsed.netloc,
+        parsed_url.path,
+        parsed_url.params,
+        parsed_url.query,
+        parsed_url.fragment
+    ))
+    return updated_url
+
+for idx, row in enumerate(all_rows):
+    def get_val(i):
+        return row[i] if i < len(row) else ''
 
     col_a = get_val(0)  # id
     col_b = get_val(1)  # 상품명
@@ -42,10 +61,18 @@ for row in all_rows:
     col_f = get_val(5)  # 링크
     col_h = get_val(7)  # 이미지링크
 
+    # 1행(헤더)은 변경 없이 그대로 유지
+    if idx == 0:
+        extracted_data.append([col_a, col_b, col_c, col_d, col_f, col_h])
+        continue
+
     # B열 상품명에서 [, ], (, ) 제거
     cleaned_b = bracket_pattern.sub('', col_b)
 
-    extracted_data.append([col_a, cleaned_b, col_c, col_d, col_f, col_h])
+    # F열 도메인을 https://unique.hanatour.com 으로 변경
+    updated_f = replace_domain(col_f)
+
+    extracted_data.append([col_a, cleaned_b, col_c, col_d, updated_f, col_h])
 
 # 4. Target 시트('호텔github')에 데이터 반영
 try:
